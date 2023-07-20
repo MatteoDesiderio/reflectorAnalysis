@@ -11,7 +11,7 @@ import obspy
 import pickle
 from obspy.core.util import AttribDict
 import matplotlib.pyplot as plt
-
+import os
 
 def hyperbola(x, slowness, t0):
     return np.sqrt((x * slowness) ** 2 + t0 ** 2)
@@ -92,6 +92,12 @@ class Section:
         
         self.mseed_file = mseed_file.replace(".MSEED", "")
         self.group = obspy.read(rundir + self.mseed_file + ".MSEED")
+        
+        try:
+            os.mkdir(self.mseed_file)
+        except FileExistsError:
+            pass
+        
         cat = obspy.read_events(rundir + "event.xml")
         self.event = cat[0]
         inventory = obspy.read_inventory(rundir + "inventory.XML")
