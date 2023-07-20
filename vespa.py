@@ -8,6 +8,7 @@ Created on Mon May 29 11:43:40 2023
 import numpy as np
 from segmentaxis import segment_axis
 import obspy
+from obspy import taup
 import pickle
 from obspy.core.util import AttribDict
 import matplotlib.pyplot as plt
@@ -22,6 +23,21 @@ def define_trace_location(group, stations):
                          longitude=station.longitude)
         for trace in group.select(station=station.code):
             trace.stats.coordinates = loc
+
+def getter_np(self, nm):
+    try:
+        val = np.load(getattr(self, "_" + nm) + ".npy")
+    except FileNotFoundError:
+        val = []
+    return val
+
+def setter_np(self, value, nm):
+    path = self._where + "/" + nm
+    np.save(path, value)
+    setattr(self,  "_" + nm, path)
+    
+
+
 
 class Vespagram:
     def __init__(self, offsets, time, data, smin, smax, ds, dwin, overlap=.5):
@@ -93,8 +109,10 @@ class Section:
         self.mseed_file = mseed_file.replace(".MSEED", "")
         self.group = obspy.read(rundir + self.mseed_file + ".MSEED")
         
+        self._where = self.rundir + "/" + self.mseed_file
+        
         try:
-            os.mkdir(self.mseed_file)
+            os.mkdir(self._where)
         except FileExistsError:
             pass
         
@@ -112,22 +130,82 @@ class Section:
             
         define_trace_location(self.group, self.stations)
         
-        self.streams_pre = obspy.Stream()
-        self.streams = obspy.Stream()
-        
-        self.distances = []
-        self.names = []
-    
-        self.ttimes = []
-        self.peak_times = []
-        
         self.model = []
         self.chosen_phase = ""
+
+        
+    @property
+    def streams_pre(self):
+        try:
+            stream = obspy.read(self._streams_pre )
+        except FileNotFoundError:
+            stream = obspy.Stream()
+        return stream
+    @streams_pre.setter
+    def streams_pre(self, value):
+        nm = "streams_pre"
+        path = self._where + "/" + nm + ".MSEED"
+        value.write(path, format="MSEED")
+        self._streams_pre = path
+        
+    @property
+    def streams(self):
+        try:
+            stream = obspy.read(self._streams )
+        except FileNotFoundError:
+            stream = obspy.Stream()
+        return stream
+    @streams.setter
+    def streams(self, value):
+        name = "streams"
+        path = self._where + "/" + name + ".MSEED"
+        value.write(path, format="MSEED")
+        self._streams = path
+    
+    #self.streams_pre = obspy.Stream()
+    #self.streams = obspy.Stream()
+    
+    @property
+    def distances(self):
+        return getter_np(self, "distances")
+    @distances.setter
+    def distances(self, value):
+        setter_np(self, value, "distances")
+        
+    @property
+    def names(self):
+        return getter_np(self, "names")
+    @names.setter
+    def names(self, value):
+        setter_np(self, value, "names")
+            
+    #self.distances = []
+    #self.names = []
+    
+    @property
+    def ttimes(self):
+        return getter_np(self, "ttimes")
+    @ttimes.setter
+    def ttimes(self, value):
+        setter_np(self, value, "ttimes")
+    
+    @property
+    def peak_times(self):
+        return getter_np(self, "peak_times")
+    @peak_times.setter
+    def peak_times(self, value):
+        setter_np(self, value, "peak_times")
+        
+    #self.ttimes = []
+    #self.peak_times = []
+    
+    
         
     def get_stations_in_range(self):
         gr = self.group
         distances = []
         names = []
+        st = obspy.Stream()
         # build list of accepted stations
         for stat in self.stations:
             rlat, rlon = stat.latitude, stat.longitude
@@ -137,14 +215,15 @@ class Section:
             if dist <= self.dmax and dist >= self.dmin:
                 distances.append(dist)
                 names.append(stat.code)
-                self.streams_pre += gr.select(id="*%s*" % stat.code)
-                    
+                st += gr.select(id="*%s*" % stat.code)
+                
+        self.streams_pre = st
         self.distances = np.r_[distances]
         self.names = np.r_[names]
         
     def get_arrival_times(self, phase_list=["SS"], model="prem"):
         ttimes = []
-        self.model = obspy.taup.TauPyModel(model)
+        self.model = taup.TauPyModel(model)
 
         for dist, code in zip(self.distances, self.names):
             args = dict(source_depth_in_km=self.z_src_km, 
@@ -181,45 +260,37 @@ class Section:
     
     def collect_aligned(self, phase="SS", model="prem"):
         self.get_stations_in_range()
-        
         self.chosen_phase = phase
         phase_list = [phase]
-        if not self.ttimes:
-            self.get_arrival_times(phase_list, model)
-        else:
-            print("Already computed %s arrivals for %s" % (phase, model[:-2]))
+        self.get_arrival_times(phase_list, model)
+        self.get_max_t_diff()
         
-        if not self.peak_times:
-            self.get_max_t_diff()
-        else:
-            print("Already computed time for %s peak" % phase)
-       
+        st = obspy.Stream()
+        streams_pre = self.streams_pre
         for c in self.channels:
-            traces = []
-            times_traces = []
             for u, (code, ttime) in enumerate(zip(self.names, self.ttimes)):
-                selection = self.streams_pre.select(id="*%s*" % code).copy()
+                selection = streams_pre.select(id="*%s*" % code).copy()
                 tr = selection.select(channel="*%s*" % c)[0]
                 reftime = tr.stats.starttime + ttime + self.peak_times[u]
                 sr = tr.stats.sampling_rate
                 trimmed = tr.trim(reftime - self.pre_cut_t, 
                                   reftime + self.post_cut_t, 
                                   **self.trim_args)
-                traces.append(trimmed.data)
-                times_traces.append(trimmed.times(reftime=reftime))
-                self.streams += trimmed
+                st += trimmed
+        self.streams = st
     
     def to_numpy_data(self, channel="T", do_filt=True):
-        st_pre = self.streams.select(channel="*" + channel + "*").copy()
+        st_pre = self.streams.copy()
+        st_pre = st_pre.select(channel="*" + channel + "*")
         st_raw = st_pre.copy()
+        dt = st_raw[0].stats.delta
         for tr in st_raw:
             tr.stats.starttime -= tr.stats.starttime
         mint = min([tr.stats.endtime.timestamp for tr in st_raw])
+        mint = min([len(tr) for tr in st_raw]) * dt
         for tr in st_raw:
-            tr.trim(tr.stats.starttime, tr.stats.starttime + mint, 
-                     nearest_sample=False)
-            tr.stats.coordinates.elevation = 0
-            
+            tr.trim(tr.stats.starttime, tr.stats.starttime + int(mint), 
+                     nearest_sample=False, pad=False)            
         st_filt = st_raw.copy()
 
         for tr in st_filt:
@@ -229,14 +300,13 @@ class Section:
         this_st = st_filt if do_filt else st_raw
 
         data = np.c_[[tr.data for tr in this_st]]
-        dt = this_st[0].stats.delta
         time = np.arange(0, data.shape[-1] * dt, dt)
         meandata = np.mean(data, axis=1)
         data = (data.T - meandata).T 
         maxdata = np.max(np.abs(data), axis=1)
         data_norm = (data.T / maxdata).T
         
-        return channel, time - self.pre_cut_t, data_norm, data
+        return time - self.pre_cut_t, data_norm, data, channel
      
     def plot_data(self, time, data, close_all=True,
                   args={"cmap":"bone_r", "vmin":-0.25, "vmax":0.25}):
