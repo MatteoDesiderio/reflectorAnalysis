@@ -24,9 +24,18 @@ def define_trace_location(group, stations):
         for trace in group.select(station=station.code):
             trace.stats.coordinates = loc
 
-def getter_np(self, nm):
+def get_path(self, nm):
     try:
-        val = np.load(getattr(self, "_" + nm) + ".npy")
+        path = getattr(self, "_" + nm)  
+    except AttributeError:
+        path = self._where + "/" + nm
+    return path
+    
+
+def getter_np(self, nm):
+    path = get_path(self, nm)
+    try:
+        val = np.load(path + ".npy")
     except FileNotFoundError:
         val = []
     return val
@@ -35,9 +44,6 @@ def setter_np(self, value, nm):
     path = self._where + "/" + nm
     np.save(path, value)
     setattr(self,  "_" + nm, path)
-    
-
-
 
 class Vespagram:
     def __init__(self, offsets, time, data, smin, smax, ds, dwin, overlap=.5):
@@ -136,8 +142,9 @@ class Section:
         
     @property
     def streams_pre(self):
+        path = get_path(self, "streams_pre")
         try:
-            stream = obspy.read(self._streams_pre )
+            stream = obspy.read(path + ".MSEED")
         except FileNotFoundError:
             stream = obspy.Stream()
         return stream
@@ -150,8 +157,9 @@ class Section:
         
     @property
     def streams(self):
+        path = get_path(self, "streams")
         try:
-            stream = obspy.read(self._streams )
+            stream = obspy.read(path + ".MSEED")
         except FileNotFoundError:
             stream = obspy.Stream()
         return stream
