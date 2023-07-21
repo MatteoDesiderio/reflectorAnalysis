@@ -35,18 +35,21 @@ plt.xlim((-440, 40))
 s = phs.get_slownesses_for_vespagram()
 
 # %%
-offsets = phs.distances - min(phs.distances)
-v = Vespagram(offsets, time-min(time), data[:, ::-1], -s, 11, .9)
+v = Vespagram(phs.distances, time, data, s, 11, .9)
 delays, slownesses, vespagram = v.compute()
 
 # %%
+vmin=-.01
+vmax=0.01
+lvls=np.linspace(vmin, vmax, 32)
 plt.figure()
-plt.pcolor(delays, -slownesses, vespagram[:,::-1], cmap="seismic", 
-           vmin=-.01, vmax=0.01)
-#plt.ylim([-smin, -smax])
+plt.pcolor(delays, slownesses, vespagram, cmap="seismic", vmin=-.01, vmax=0.01)
+plt.contourf(delays, slownesses, vespagram, cmap="seismic", 
+             levels=)
+plt.ylim([slownesses.max(), slownesses.min()])
 plt.colorbar(extend="both")
 plt.xlabel("Time - SS theoretical arrival time [s]")
 plt.ylabel("Slowness [s/deg]")
-#plt.plot(phs.line_reduced.T)
+plt.plot(*phs.line_reduced.T)
 #plt.title("Vespagram for %s" % titles[case])
 

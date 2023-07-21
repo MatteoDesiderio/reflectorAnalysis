@@ -70,9 +70,8 @@ class Vespagram:
         dwin_samples = int(self.dwin / self.dt) + 1 
         d = int(self.dwin * self.overlap)
         self.windows = segment_axis(self.time, self.dwin, d)
-        
 
-    def compute(self):
+    def compute_(self):
         self.prepare()
         time = self.time
         windows = self.windows
@@ -109,6 +108,45 @@ class Vespagram:
                 vespagram[i_sl, i_de] = np.mean(beam)
                 
         return delays, slownesses, vespagram
+    
+    def compute(self):
+        self.prepare()
+        time = self.time
+        windows = self.windows
+        offsets = self.offsets
+        slownesses = self.slownesses
+        delays = np.mean(windows, axis=1)
+        halfwin = np.abs(windows[0, 0] - windows[0, -1]) / 2
+        data = self.data
+        lenwin = windows.shape[1]
+        vespagram = np.zeros((len(slownesses), len(windows)))
+        lines = (offsets[:, np.newaxis] - np.min(offsets)) * slownesses
+
+        for i_sl, line in enumerate(lines.T):
+            for i_de, delay in enumerate(delays):
+                taus = delay + line
+                n, beam = 0, np.zeros(lenwin)
+                for signal, tau in zip(data, taus):
+                    i_tau = np.argmin(np.abs(tau - time))
+                    d = lenwin // 2
+                    end = i_tau + d if lenwin % 2 == 0 else i_tau + d + 1
+                    t_in_window = time[i_tau - d : end]
+                    taum, taup = tau - halfwin, tau + halfwin
+                    signal_in_window = signal[i_tau - d : end]
+                    lendiff = lenwin - len(signal_in_window)
+                    if taum < time.min() and taup >= time.min():
+                        beam += np.r_[signal_in_window, np.zeros(lendiff)]
+                        n += 1
+                    elif taup < time.min():
+                        beam += np.zeros(lenwin)
+                    else:
+                        beam += signal_in_window
+                        n += 1
+                beam /= n
+               
+                vespagram[i_sl, i_de] = np.mean(beam)
+                
+        return delays, slownesses, vespagram    
 
 class Section:
     def __init__(self, rundir, mseed_file, channels="RTZ", pre_cut_t=440, 
@@ -508,14 +546,5 @@ class Phases:
                      **args_ref_plot)
             
     def get_slownesses_for_vespagram(self):
-        return self.line_reduced[:,-1]
-        """
-        all_times = np.c_[time_precursors]
-        all_time_diffs = np.c_[time_precursors] - np.r_[SS_times]
-        all_slownesses = np.c_[slowness_precursors]
-        d_reference = 125
-        ref_i = np.argmin(np.abs(d_reference - np.r_[distances]))
-    
-        time_reference = all_time_diffs[:, ref_i]
-        slownesses_reference = all_slownesses[:, ref_i]
-        """
+        s = self.line_reduced[:, -1]
+        return s
