@@ -35,8 +35,8 @@ plt.xlim((-440, 40))
 s = phs.get_slownesses_for_vespagram()
 
 # %%
-offsets = np.r_[phs.distances] - min(phs.distances)
-v = Vespagram(offsets, time-min(time), data, -s, 11, .9)
+offsets = phs.distances - min(phs.distances)
+v = Vespagram(offsets, time-min(time), data[:, ::-1], -s, 11, .9)
 delays, slownesses, vespagram = v.compute()
 
 # %%

@@ -48,15 +48,16 @@ class Vespagram:
         
         if isinstance(slownesses, tuple):
             smin, smax, ds = slownesses
-            self.slownesses = np.arange(smin, smax + ds, ds)
+            slownesses = np.arange(smin, smax + ds, ds)
         elif isinstance(slownesses, np.ndarray):
-            self.slownesses = slownesses.squeeze()
+            slownesses = slownesses.squeeze()
         else:
             msg = "slownesses must be either a tuple (smin, smax, ds) "
             msg += " or numpy array (with either slownesses at the reference"
             msg += " distance, or slownesses as function of distance)"
             raise TypeError(msg)
 
+        self.slownesses = slownesses
         self.data = data
         self.dwin = dwin
         self.overlap = overlap
@@ -69,6 +70,7 @@ class Vespagram:
         dwin_samples = int(self.dwin / self.dt) + 1 
         d = int(self.dwin * self.overlap)
         self.windows = segment_axis(self.time, self.dwin, d)
+        
 
     def compute(self):
         self.prepare()
@@ -78,7 +80,7 @@ class Vespagram:
         slownesses = self.slownesses
         delays = np.mean(windows, axis=1)
         halfwin = np.abs(windows[0, 0] - windows[0, -1]) / 2
-        data = self.data[:, ::-1]
+        data = self.data
         lenwin = windows.shape[1]
         vespagram = np.zeros((len(slownesses), len(windows)))
         for i_sl, sl in enumerate(slownesses):
