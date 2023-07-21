@@ -14,8 +14,6 @@ from obspy.core.util import AttribDict
 import matplotlib.pyplot as plt
 import os
 
-def hyperbola(x, slowness, t0):
-    return np.sqrt((x * slowness) ** 2 + t0 ** 2)
 
 def define_trace_location(group, stations):
     for station in stations:
@@ -85,8 +83,8 @@ class Vespagram:
         vespagram = np.zeros((len(slownesses), len(windows)))
         for i_sl, sl in enumerate(slownesses):
             for i_de, delay in enumerate(delays):
-                #taus = delay + sl * offsets
-                taus = hyperbola(offsets, sl, delay)
+                taus = delay + sl * offsets
+                #taus = hyperbola(offsets, sl, delay)
                 n, beam = 0, np.zeros(len(windows[0]))
                 for signal, tau in zip(data, taus):
                     i_tau = np.argmin(np.abs(tau - time))
@@ -356,8 +354,6 @@ class Phases:
         
         self.precursors = []
         
-    
-    
     @property
     def slowness_precursors(self):
         return getter_np(self, "slowness_precursors")
@@ -464,27 +460,52 @@ class Phases:
                 
         self.slowness_precursors = slowness_precursors
         self.time_precursors = time_precursors
-        ref_i = np.argmin(np.abs(self.d_reference - self.distances))
-        
-        s_line = slowness_precursors[:, ref_i]
-        t_line = time_precursors[:, ref_i] 
-        self.line = np.c_[t_line, s_line]
-        
-        times_reduced = time_precursors - self.ttimes
-        self.times_reduced = times_reduced        
-        self.distances_reduced = self.distances - self.d_reference 
-        t_line_red = times_reduced[:, ref_i] 
-        s_line_red = s_line - s_line[0]
-        self.line_reduced = np.c_[t_line_red, s_line_red]
+        if shape[1] > 1:
+            ref_i = np.argmin(np.abs(self.d_reference - self.distances))
+            s_line = slowness_precursors[:, ref_i]
+            t_line = time_precursors[:, ref_i] 
+            self.line = np.c_[t_line, s_line]
+            
+            times_reduced = time_precursors - self.ttimes
+            self.times_reduced = times_reduced        
+            self.distances_reduced = self.distances - self.d_reference 
+            t_line_red = times_reduced[:, ref_i] 
+            s_line_red = s_line - s_line[0]
+            self.line_reduced = np.c_[t_line_red, s_line_red]
+        else:
+            ref_i = np.argmin(np.abs(self.d_reference - self.distances))
+            
+            s_line = slowness_precursors[:, 0]
+            t_line = time_precursors[:, 0] 
+            self.line = np.c_[t_line, s_line]
+            
+            times_reduced = time_precursors - self.ttimes
+            t_line_red = times_reduced[:, ref_i] 
+            s_line_red = s_line - s_line[0]
+            self.line_reduced = np.c_[t_line_red, s_line_red]
+            self.times_reduced = t_line_red
+            self.distances_reduced = self.distances - self.d_reference
 
-    def plot_precursors(self, show_ref=True, args_ref_plot={}, **args_plot):
-        plt.plot(self.times_reduced.T, self.distances, **args_plot)
+
+    def plot_precursors(self, show_ref=True, annotate=True, args_ref_plot={}, 
+                        **args_plot):
+        times_reduced = self.times_reduced
+        distances = self.distances
+        if times_reduced.ndim > 1:
+            plt.plot(times_reduced.T, distances, **args_plot)
+        else:
+            d_ref = np.ones(len(times_reduced)) * self.d_reference
+            plt.plot(times_reduced, d_ref,  "o", **args_plot)
+            
         if show_ref:
             t, s = self.line_reduced.T
             d = self.distances_reduced
 
-            plt.plot( d * s + t, d, **args_ref_plot)
-        
+            plt.plot( d[:, np.newaxis] * s + t, distances, 
+                     **args_ref_plot)
+            
+    def get_slownesses_for_vespagram(self):
+        return self.line_reduced[:,-1]
         """
         all_times = np.c_[time_precursors]
         all_time_diffs = np.c_[time_precursors] - np.r_[SS_times]
