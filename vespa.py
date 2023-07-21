@@ -13,7 +13,7 @@ import pickle
 from obspy.core.util import AttribDict
 import matplotlib.pyplot as plt
 import os
-
+from scipy.interpolate import interp1d
 
 def define_trace_location(group, stations):
     for station in stations:
@@ -108,6 +108,30 @@ class Vespagram:
                 vespagram[i_sl, i_de] = np.mean(beam)
                 
         return delays, slownesses, vespagram
+    
+    @staticmethod
+    def cross_section(line, delays, slownesses, vespagram):
+        t, s = line.T
+        s_interp = np.interp(delays, t[::-1], s[::-1])
+        inerpol8r = interp1d(s, vespagram, axis=0)
+        v_interp = inerpol8r(s_interp)
+        
+        x, y = s_interp  - s_interp.min(), delays - delays.min()
+        x = x / x.max() * len(x) - 1
+        y = y / y.max() * len(y) - 1
+        
+        i, j = y.asty
+        
+        w = np.zeros(len(s_interp))
+        
+        for i, s_i in enumerate(s_interp):
+            for j, d_j in enumerate(delays):
+                np.argmin(np.abs())
+            
+        return w
+        #for i, s_i in enumerate(s_interp):
+            
+        
     
     def compute(self):
         self.prepare()

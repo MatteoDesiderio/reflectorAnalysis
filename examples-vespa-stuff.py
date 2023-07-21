@@ -10,6 +10,7 @@ from vespa import Section, Phases, Vespagram
 import matplotlib.pyplot as plt
 import numpy as np
 plt.ion()
+plt.style.use("ggplot")
 
 # %%
 sec = Section("runC201509130814A/", "PR")
@@ -20,7 +21,7 @@ time, data, _, _ = sec.to_numpy_data()
 # %%
 reflector_depths = np.arange(0, 1600, 100)
 phs = Phases("runC201509130814A/", "PR", "reflectors-coarse", reflector_depths,
-             d_reference=139)
+             d_reference=138)
 
 # %%
 phs.get_precursors(at_reference=True)
@@ -39,17 +40,18 @@ v = Vespagram(phs.distances, time, data, s, 11, .9)
 delays, slownesses, vespagram = v.compute()
 
 # %%
-vmin=-.01
-vmax=0.01
+vmin=-.03
+vmax=0.03
 lvls=np.linspace(vmin, vmax, 32)
-plt.figure()
-plt.pcolor(delays, slownesses, vespagram, cmap="seismic", vmin=-.01, vmax=0.01)
-plt.contourf(delays, slownesses, vespagram, cmap="seismic", 
-             levels=)
-plt.ylim([slownesses.max(), slownesses.min()])
-plt.colorbar(extend="both")
-plt.xlabel("Time - SS theoretical arrival time [s]")
-plt.ylabel("Slowness [s/deg]")
-plt.plot(*phs.line_reduced.T)
+f, (ax1, ax2) = plt.subplots(2, 1, gridspec_kw={'height_ratios': [4, 1]})
+args = (delays, slownesses, vespagram)
+ax1.contourf(*args, cmap="seismic", levels=lvls, extend="both")
+ax1.set_ylim([slownesses.max(), slownesses.min()])
+#plt.colorbar()
+ax2.set_xlabel("Time - SS peak time [s]")
+ax1.set_ylabel("Slowness [s/deg]")
+ax1.plot(*phs.line_reduced.T, "k:")
 #plt.title("Vespagram for %s" % titles[case])
 
+#%%
+w = Vespagram.cross_section(phs.line_reduced, delays, slownesses, vespagram)
