@@ -46,17 +46,26 @@ def setter_np(self, value, nm):
     setattr(self,  "_" + nm, path)
 
 class Vespagram:
-    def __init__(self, offsets, time, data, smin, smax, ds, dwin, overlap=.5):
+    def __init__(self, offsets, time, data, slownesses, dwin, overlap=.5):
+        
+        if isinstance(slownesses, tuple):
+            smin, smax, ds = slownesses
+            self.slownesses = np.arange(smin, smax + ds, ds)
+        elif isinstance(slownesses, np.ndarray):
+            self.slownesses = slownesses.squeeze()
+        else:
+            msg = "slownesses must be either a tuple (smin, smax, ds) "
+            msg += " or numpy array (with either slownesses at the reference"
+            msg += " distance, or slownesses as function of distance)"
+            raise TypeError(msg)
+
         self.data = data
-        self.smin = smin
-        self.smax = smax
         self.dwin = dwin
         self.overlap = overlap
         self.time = time
         self.dt = np.mean(np.diff(time))
         self.windows = []
         self.offsets = offsets
-        self.slownesses = np.arange(smin, smax + ds, ds)
 
     def prepare(self):
         dwin_samples = int(self.dwin / self.dt) + 1 
@@ -346,14 +355,8 @@ class Phases:
         self.chosen_phase = self.sec.chosen_phase
         
         self.precursors = []
-    """
-    @property
-    def precursors(self):
-        return getter_np(self, "precursors")
-    @precursors.setter
-    def precursors(self, value):
-        setter_np(self, value, "precursors")
-        """
+        
+    
     
     @property
     def slowness_precursors(self):
@@ -368,6 +371,34 @@ class Phases:
     @time_precursors.setter
     def time_precursors(self, value):
         setter_np(self, value, "time_precursors")
+        
+    @property
+    def line(self):
+        return getter_np(self, "line")
+    @line.setter
+    def line(self, value):
+        setter_np(self, value, "line")
+        
+    @property
+    def line_reduced(self):
+        return getter_np(self, "line_reduced")
+    @line_reduced.setter
+    def line_reduced(self, value):
+        setter_np(self, value, "line_reduced")
+        
+    @property
+    def distances_reduced(self):
+        return getter_np(self, "distances_reduced")
+    @distances_reduced.setter
+    def distances_reduced(self, value):
+        setter_np(self, value, "distances_reduced")
+        
+    @property
+    def times_reduced(self):
+        return getter_np(self, "times_reduced")
+    @times_reduced.setter
+    def times_reduced(self, value):
+        setter_np(self, value, "times_reduced")
     
     def get_precursors(self, chosen_phase="SS", reflector_phase="S^%iS", 
                        at_reference=True):
@@ -421,7 +452,6 @@ class Phases:
         time_precursors = np.zeros(shape)
     
         for i, precursor in enumerate(precursors):
-            
             for j, arr in enumerate(precursor):
                 if not (arr is np.nan):
                     slow = arr.ray_param_sec_degree
@@ -434,7 +464,27 @@ class Phases:
                 
         self.slowness_precursors = slowness_precursors
         self.time_precursors = time_precursors
-    
+        ref_i = np.argmin(np.abs(self.d_reference - self.distances))
+        
+        s_line = slowness_precursors[:, ref_i]
+        t_line = time_precursors[:, ref_i] 
+        self.line = np.c_[t_line, s_line]
+        
+        times_reduced = time_precursors - self.ttimes
+        self.times_reduced = times_reduced        
+        self.distances_reduced = self.distances - self.d_reference 
+        t_line_red = times_reduced[:, ref_i] 
+        s_line_red = s_line - s_line[0]
+        self.line_reduced = np.c_[t_line_red, s_line_red]
+
+    def plot_precursors(self, show_ref=True, args_ref_plot={}, **args_plot):
+        plt.plot(self.times_reduced.T, self.distances, **args_plot)
+        if show_ref:
+            t, s = self.line_reduced.T
+            d = self.distances_reduced
+
+            plt.plot( d * s + t, d, **args_ref_plot)
+        
         """
         all_times = np.c_[time_precursors]
         all_time_diffs = np.c_[time_precursors] - np.r_[SS_times]
