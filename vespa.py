@@ -85,13 +85,14 @@ class Vespagram:
             for i_de, delay in enumerate(delays):
                 taus = delay + sl * offsets
                 #taus = hyperbola(offsets, sl, delay)
-                n, beam = 0, np.zeros(len(windows[0]))
+                n, beam = 0, np.zeros(lenwin)
                 for signal, tau in zip(data, taus):
                     i_tau = np.argmin(np.abs(tau - time))
-                    d = int(halfwin // self.dt)
-                    t_in_window = time[i_tau - d : i_tau + d + 1]
+                    d = lenwin // 2
+                    end = i_tau + d if lenwin % 2 == 0 else i_tau + d + 1
+                    t_in_window = time[i_tau - d : end]
                     taum, taup = tau - halfwin, tau + halfwin
-                    signal_in_window = signal[i_tau - d : i_tau + d + 1]
+                    signal_in_window = signal[i_tau - d : end]
                     lendiff = lenwin - len(signal_in_window)
                     if taup > time.max() and taum <= time.max():
                         beam += np.r_[signal_in_window, np.zeros(lendiff)]

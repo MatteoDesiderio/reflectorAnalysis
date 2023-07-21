@@ -39,3 +39,14 @@ offsets = np.r_[phs.distances] - min(phs.distances)
 v = Vespagram(offsets, time-min(time), data, -s, 11, .9)
 delays, slownesses, vespagram = v.compute()
 
+# %%
+plt.figure()
+plt.pcolor(delays, -slownesses, vespagram[:,::-1], cmap="seismic", 
+           vmin=-.01, vmax=0.01)
+#plt.ylim([-smin, -smax])
+plt.colorbar(extend="both")
+plt.xlabel("Time - SS theoretical arrival time [s]")
+plt.ylabel("Slowness [s/deg]")
+#plt.plot(phs.line_reduced.T)
+#plt.title("Vespagram for %s" % titles[case])
+
