@@ -29,7 +29,8 @@ phs.get_slownesses_t_precursors()
 
 # %%
 sec.plot_data(time, data)
-phs.plot_precursors(True, color="orange", args_ref_plot={"color":"teal"})
+phs.plot_precursors(True, color="crimson", 
+                    args_ref_plot={"color":"w", "ls":"--"})
 plt.xlim((-440, 40))
 
 # %%
@@ -43,7 +44,8 @@ delays, slownesses, vespagram = v.compute()
 vmin=-.03
 vmax=0.03
 lvls=np.linspace(vmin, vmax, 32)
-f, (ax1, ax2) = plt.subplots(2, 1, gridspec_kw={'height_ratios': [4, 1]})
+f, (ax1, ax2) = plt.subplots(2, 1, gridspec_kw={'height_ratios': [4, 1]},
+                             sharex="all")
 args = (delays, slownesses, vespagram)
 ax1.contourf(*args, cmap="seismic", levels=lvls, extend="both")
 ax1.set_ylim([slownesses.max(), slownesses.min()])
@@ -55,3 +57,5 @@ ax1.plot(*phs.line_reduced.T, "k:")
 
 #%%
 w = Vespagram.cross_section(phs.line_reduced, delays, slownesses, vespagram)
+ax2.plot(delays, w, "k")
+ax2.set_ylim([vmin, vmax])

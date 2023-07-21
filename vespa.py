@@ -120,19 +120,12 @@ class Vespagram:
         x = x / x.max() * len(x) - 1
         y = y / y.max() * len(y) - 1
         
-        i, j = y.asty
+        i, j = y.astype(np.int), x.astype(np.int)
         
-        w = np.zeros(len(s_interp))
-        
-        for i, s_i in enumerate(s_interp):
-            for j, d_j in enumerate(delays):
-                np.argmin(np.abs())
+        w = v_interp[j, i]
             
         return w
-        #for i, s_i in enumerate(s_interp):
-            
-        
-    
+
     def compute(self):
         self.prepare()
         time = self.time
