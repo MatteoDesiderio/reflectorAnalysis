@@ -139,12 +139,11 @@ class Section:
         self.model = []
         self.chosen_phase = ""
 
-        
     @property
     def streams_pre(self):
         path = get_path(self, "streams_pre")
         try:
-            stream = obspy.read(path + ".MSEED")
+            stream = obspy.read(path.replace(".MSEED" ,"") + ".MSEED")
         except FileNotFoundError:
             stream = obspy.Stream()
         return stream
@@ -159,7 +158,7 @@ class Section:
     def streams(self):
         path = get_path(self, "streams")
         try:
-            stream = obspy.read(path + ".MSEED")
+            stream = obspy.read(path.replace(".MSEED" ,"") + ".MSEED")
         except FileNotFoundError:
             stream = obspy.Stream()
         return stream
@@ -169,26 +168,20 @@ class Section:
         path = self._where + "/" + name + ".MSEED"
         value.write(path, format="MSEED")
         self._streams = path
-    
-    #self.streams_pre = obspy.Stream()
-    #self.streams = obspy.Stream()
-    
+
     @property
     def distances(self):
         return getter_np(self, "distances")
     @distances.setter
     def distances(self, value):
         setter_np(self, value, "distances")
-        
+                
     @property
     def names(self):
         return getter_np(self, "names")
     @names.setter
     def names(self, value):
         setter_np(self, value, "names")
-            
-    #self.distances = []
-    #self.names = []
     
     @property
     def ttimes(self):
@@ -203,11 +196,6 @@ class Section:
     @peak_times.setter
     def peak_times(self, value):
         setter_np(self, value, "peak_times")
-        
-    #self.ttimes = []
-    #self.peak_times = []
-    
-    
         
     def get_stations_in_range(self):
         gr = self.group
@@ -328,3 +316,132 @@ class Section:
         plt.xlabel(xlab %  self.chosen_phase)
         plt.ylabel("Offset [deg]")
         plt.title("Seismograms for %s" % self.mseed_file)
+        
+    def save(self):
+        with open(self._where + "/section.pkl", "wb") as f:
+            pickle.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)
+    
+    @staticmethod
+    def load(path):
+        with open(path + "/section.pkl", "rb") as f:
+            s = pickle.load(f)
+        return s
+
+class Phases:
+    def __init__(self, 
+                 rundir, mseed_file, ref_model, depths_ref, d_reference=125):
+        self.rundir = rundir
+        self.mseed_file = mseed_file
+        self._where = self.rundir + "/" + self.mseed_file        
+        self.sec = Section.load(self._where)
+        self.pre_cut_t = self.sec.pre_cut_t
+        self.post_cut_t = self.sec.post_cut_t
+        self.dmin, self.dmax = (self.sec.dmin, self.sec.dmax)
+        self.z_src_km = self.sec.z_src_km
+        self.ttimes = self.sec.ttimes
+        self.distances = self.sec.distances
+        self.d_reference = d_reference
+        self.depths_ref = depths_ref
+        self.ref_model = taup.TauPyModel(ref_model)
+        self.chosen_phase = self.sec.chosen_phase
+        
+        self.precursors = []
+    """
+    @property
+    def precursors(self):
+        return getter_np(self, "precursors")
+    @precursors.setter
+    def precursors(self, value):
+        setter_np(self, value, "precursors")
+        """
+    
+    @property
+    def slowness_precursors(self):
+        return getter_np(self, "slowness_precursors")
+    @slowness_precursors.setter
+    def slowness_precursors(self, value):
+        setter_np(self, value, "slowness_precursors")
+        
+    @property
+    def time_precursors(self):
+        return getter_np(self, "time_precursors")
+    @time_precursors.setter
+    def time_precursors(self, value):
+        setter_np(self, value, "time_precursors")
+    
+    def get_precursors(self, chosen_phase="SS", reflector_phase="S^%iS", 
+                       at_reference=True):
+        
+        if at_reference:
+            distances = [self.d_reference]
+            print("ah!")
+        else:
+            distances = self.distances
+        
+        cp = [self.chosen_phase if chosen_phase is None else chosen_phase]
+        mod = self.ref_model
+        depths_ref = self.depths_ref
+        precursors = []
+        for i, z in enumerate(depths_ref):
+            print(z)
+            rp = [reflector_phase % z]
+            # build list of arrival times
+            arrivals = []
+            for j, dist in enumerate(distances):
+                args = dict(source_depth_in_km = self.z_src_km, 
+                            distance_in_degree = dist)
+                arr_phase = mod.get_travel_times(**args, phase_list=cp)[0]
+                try:
+                    arr = mod.get_travel_times(**args, phase_list=rp)[0]
+                    """
+                    condition1 = (arr.time <= arr_phase.time + self.post_cut_t)
+                    condition2 = (arr.time >= arr_phase.time - self.pre_cut_t )
+                    in_window = condition1 and condition2
+                    """
+                    in_window = True
+                except IndexError:
+                    in_window = False
+                
+                if in_window:    
+                    arrivals.append(arr)
+                else:
+                    precursors.append(np.nan)
+                    
+            self.precursors.append(arrivals)
+                    
+        # wont work w getter and setters 
+        # if you dont change from list to array
+        # self.precursors = precursors 
+        
+    def get_slownesses_t_precursors(self):
+        precursors = self.precursors
+        shape = (len(precursors), len(precursors[0]))
+        
+        slowness_precursors = np.zeros(shape)
+        time_precursors = np.zeros(shape)
+    
+        for i, precursor in enumerate(precursors):
+            
+            for j, arr in enumerate(precursor):
+                if not (arr is np.nan):
+                    slow = arr.ray_param_sec_degree
+                    t = arr.time
+                else:
+                    slow = np.nan
+                    t = np.nan
+                slowness_precursors[i,j] = slow
+                time_precursors[i,j] = t
+                
+        self.slowness_precursors = slowness_precursors
+        self.time_precursors = time_precursors
+    
+        """
+        all_times = np.c_[time_precursors]
+        all_time_diffs = np.c_[time_precursors] - np.r_[SS_times]
+        all_slownesses = np.c_[slowness_precursors]
+        d_reference = 125
+        ref_i = np.argmin(np.abs(d_reference - np.r_[distances]))
+    
+        time_reference = all_time_diffs[:, ref_i]
+        slownesses_reference = all_slownesses[:, ref_i]
+        """
