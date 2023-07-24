@@ -111,21 +111,29 @@ class Vespagram:
     
     @staticmethod
     def cross_section(line, delays, slownesses, vespagram):
+        # t and slown. corresp. to the reference distance
         t, s = line.T
+        
         s_interp = np.interp(delays, t[::-1], s[::-1])
+        # make vespagram equal along both directions (square image)
         inerpol8r = interp1d(s, vespagram, axis=0)
-        v_interp = inerpol8r(s_interp)
+        snew = np.linspace(slownesses.min(), slownesses.max(), 
+                           len(delays))
+        v_interp = inerpol8r(snew)
         
-        x, y = s_interp  - s_interp.min(), delays - delays.min()
-        x = x / x.max() * len(x) - 1
-        y = y / y.max() * len(y) - 1
-        
+        # convert ref s and t to pixel coordinates
+        y, x = s_interp  - s_interp.min(), delays - delays.min()
+        x = np.rint((x / x.max()) * (len(x) - 1))
+        y = np.rint((y / y.max()) * (len(y) - 1))
         i, j = y.astype(np.int), x.astype(np.int)
+        # extract pixels along reference s and t line
+        w = v_interp[i, j]
+        delays_w = delays[j]
+        # delete values before min reference t
+        interval = delays_w >= t.min()   
+        return delays_w[interval], w[interval]
         
-        w = v_interp[j, i]
-            
-        return w
-
+    
     def compute(self):
         self.prepare()
         time = self.time
@@ -459,7 +467,6 @@ class Phases:
         
         if at_reference:
             distances = [self.d_reference]
-            print("ah!")
         else:
             distances = self.distances
         
@@ -493,10 +500,6 @@ class Phases:
                     precursors.append(np.nan)
                     
             self.precursors.append(arrivals)
-                    
-        # wont work w getter and setters 
-        # if you dont change from list to array
-        # self.precursors = precursors 
         
     def get_slownesses_t_precursors(self):
         precursors = self.precursors

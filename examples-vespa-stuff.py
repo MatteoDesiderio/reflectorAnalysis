@@ -12,16 +12,18 @@ import numpy as np
 plt.ion()
 plt.style.use("ggplot")
 
+case = "PP"
+
 # %%
-sec = Section("runC201509130814A/", "PR")
+sec = Section("runC201509130814A/", case)
 sec.collect_aligned() # to compute from the top
 sec.save()
 time, data, _, _ = sec.to_numpy_data()
 
 # %%
-reflector_depths = np.arange(0, 1600, 100)
-phs = Phases("runC201509130814A/", "PR", "reflectors-coarse", reflector_depths,
-             d_reference=138)
+reflector_depths = np.arange(0, 1500, 5)
+phs = Phases("runC201509130814A/", case, "SdS_0.0_2.5.2", reflector_depths,
+             d_reference=125)
 
 # %%
 phs.get_precursors(at_reference=True)
@@ -29,8 +31,7 @@ phs.get_slownesses_t_precursors()
 
 # %%
 sec.plot_data(time, data)
-phs.plot_precursors(True, color="crimson", 
-                    args_ref_plot={"color":"w", "ls":"--"})
+#phs.plot_precursors(True, color="r", args_ref_plot={"color":"w", "ls":"--"})
 plt.xlim((-440, 40))
 
 # %%
@@ -53,9 +54,18 @@ ax1.set_ylim([slownesses.max(), slownesses.min()])
 ax2.set_xlabel("Time - SS peak time [s]")
 ax1.set_ylabel("Slowness [s/deg]")
 ax1.plot(*phs.line_reduced.T, "k:")
+
+ax1.axvline(*phs.line_reduced[reflector_depths==1000].squeeze())
+ax1.axvline(*phs.line_reduced[reflector_depths==660].squeeze())
+ax1.axvline(*phs.line_reduced[reflector_depths==410].squeeze())
+ax1.axvline(-216)
 #plt.title("Vespagram for %s" % titles[case])
 
-#%%
-w = Vespagram.cross_section(phs.line_reduced, delays, slownesses, vespagram)
-ax2.plot(delays, w, "k")
+# %%
+x, w = Vespagram.cross_section(phs.line_reduced, delays, slownesses, vespagram)
+ax2.plot(x, w, "k")
 ax2.set_ylim([vmin, vmax])
+ax2.axvline(*phs.line_reduced[reflector_depths==1000].squeeze())
+ax2.axvline(*phs.line_reduced[reflector_depths==660].squeeze())
+ax2.axvline(*phs.line_reduced[reflector_depths==410].squeeze())
+ax2.axvline(-216)
