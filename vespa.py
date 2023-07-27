@@ -206,7 +206,9 @@ class Section:
         
         with open(rundir + "dbmetadata.pkl", "rb") as f:
             dbmeta = pickle.load(f)
-            
+        
+        self.dbmetadata = dbmeta
+        
         define_trace_location(self.group, self.stations)
         
         self.model = []
