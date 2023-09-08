@@ -125,7 +125,7 @@ class Vespagram:
         y, x = s_interp  - s_interp.min(), delays - delays.min()
         x = np.rint((x / x.max()) * (len(x) - 1))
         y = np.rint((y / y.max()) * (len(y) - 1))
-        i, j = y.astype(np.int), x.astype(np.int)
+        i, j = y.astype(np.int64), x.astype(np.int64)
         # extract pixels along reference s and t line
         w = v_interp[i, j]
         delays_w = delays[j]
