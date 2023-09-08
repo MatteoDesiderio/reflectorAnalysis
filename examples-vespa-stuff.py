@@ -12,13 +12,14 @@ import numpy as np
 plt.ion()
 plt.style.use("ggplot")
 
-case = "MC"
+case = "PP"
 
 # %% load
 sec = Section("runC201509130814A/", case)
 sec.collect_aligned() # to compute from the top
 sec.save()
 time, data, _, _ = sec.to_numpy_data()
+sec.plot_data(time, data)
 
 # %% init precursors
 reflector_depths = np.arange(0, 1500, 5)
@@ -30,8 +31,7 @@ phs.get_precursors(at_reference=True)
 phs.get_slownesses_t_precursors()
 
 # %%
-sec.plot_data(time, data)
-#phs.plot_precursors(True, color="r", args_ref_plot={"color":"w", "ls":"--"})
+#phs.plot_precursors(False, color="r", args_ref_plot={"color":"w", "ls":"--"})
 plt.xlim((-440, 40))
 
 # %%
@@ -59,6 +59,7 @@ ax1.axvline(*phs.line_reduced[reflector_depths==1000].squeeze())
 ax1.axvline(*phs.line_reduced[reflector_depths==660].squeeze())
 ax1.axvline(*phs.line_reduced[reflector_depths==410].squeeze())
 ax1.axvline(*phs.line_reduced[reflector_depths==860].squeeze(), color="k")
+
 ax1.set_title("Vespagram for %s" % case)
 
 # %%
