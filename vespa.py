@@ -184,7 +184,6 @@ class Section:
         self.dmin, self.dmax = dmin, dmax
         self.freqmin, self.freqmax= freqmin, freqmax
         self.trim_args = trim_args
-        
         self.mseed_file = mseed_file.replace(".MSEED", "")
         self.group = obspy.read(rundir + self.mseed_file + ".MSEED")
         
@@ -206,12 +205,14 @@ class Section:
         
         with open(rundir + "dbmetadata.pkl", "rb") as f:
             dbmeta = pickle.load(f)
-            
+        
+        self.dbmetadata = dbmeta
+        
         define_trace_location(self.group, self.stations)
         
         self.model = []
         self.chosen_phase = ""
-
+        
     @property
     def streams_pre(self):
         path = get_path(self, "streams_pre")
