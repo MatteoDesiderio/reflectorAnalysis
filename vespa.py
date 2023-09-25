@@ -21,8 +21,9 @@ def simple_max(x):
 
 def first_peak_max(x, *args, **kwargs):
     from scipy.signal import find_peaks
-    _kwargs = {**kwargs, height}
-    pass
+    _kwargs = {**kwargs, "height":.4}
+    peaks_i, _ = find_peaks(x, *args, **_kwargs)
+    return x[peaks_i[0]]
 
 def get_max_method(max_method="simple"):
     if max_method == "simple":
@@ -193,7 +194,8 @@ class Vespagram:
 
 class Section:
     def __init__(self, rundir, mseed_file, channels="RTZ", pre_cut_t=440, 
-                 post_cut_t=40, dmin=100, dmax=178, freqmin=0.02, freqmax=0.1,
+                 post_cut_t=40, win_plus=40, win_minus=40, dmin=100, dmax=178, 
+                 freqmin=0.02, freqmax=0.1, 
                  trim_args={"pad":True, "nearest_sample":False}):
         # data collection
         self.rundir = rundir
@@ -204,6 +206,8 @@ class Section:
         self.trim_args = trim_args
         self.mseed_file = mseed_file.replace(".MSEED", "")
         self.group = obspy.read(rundir + self.mseed_file + ".MSEED")
+        self.win_plus = win_plus
+        self.win_minus = win_minus
         
         self._where = self.rundir + "/" + self.mseed_file
         
@@ -321,7 +325,7 @@ class Section:
             ttimes.append(arrival.time)
         self.ttimes = np.r_[ttimes]
     
-    def get_max_t_diff(self):
+    def get_max_t_diff(self, max_method_type="first_peak"):
         peak_times = []
         st = self.streams_pre
         for u, (code, ttime) in enumerate(zip(self.names, self.ttimes)):
@@ -335,8 +339,10 @@ class Section:
             trimmed = tr.trim(reftime - self.post_cut_t, 
                               reftime + self.post_cut_t, 
                               **self.trim_args)
+            max_method = get_max_method(max_method_type)
             trim_data = trimmed.data
-            trim_data_max = np.max(trim_data)
+            trim_data /= np.max(trim_data)
+            trim_data_max = max_method(trim_data)
             trim_time = trimmed.times()
             time_max = trim_time[trim_data == trim_data_max]
             peak_times += [time_max[0] - self.post_cut_t]
