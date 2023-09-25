@@ -15,6 +15,24 @@ import matplotlib.pyplot as plt
 import os
 from scipy.interpolate import interp1d
 
+
+def simple_max(x):
+    return x.max()
+
+def first_peak_max(x, *args, **kwargs):
+    from scipy.signal import find_peaks
+    _kwargs = {**kwargs, height}
+    pass
+
+def get_max_method(max_method="simple"):
+    if max_method == "simple":
+        return simple_max
+    elif max_method == "first_peak":
+        return first_peak_max
+    else:
+        raise AttributeError("max_method must be either" + \
+                             " 'simple' or 'first_peak'")
+
 def define_trace_location(group, stations):
     for station in stations:
         loc = AttribDict(latitude=station.latitude,
