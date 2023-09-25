@@ -349,7 +349,8 @@ class Section:
                 st += trimmed
         self.streams = st
     
-    def to_numpy_data(self, channel="T", do_filt=True):
+    def to_numpy_data(self, channel="T", do_filt=True, 
+                      freqmin=None, freqmax=None):
         st_pre = self.streams.copy()
         st_pre = st_pre.select(channel="*" + channel + "*")
         st_raw = st_pre.copy()
@@ -365,7 +366,9 @@ class Section:
 
         for tr in st_filt:
             tr.detrend("simple")
-            tr.filter("bandpass", freqmin=self.freqmin, freqmax=self.freqmax)
+            _freqmin = self.freqmin if freqmin is None else freqmin
+            _freqmax = self.freqmax if freqmax is None else freqmax
+            tr.filter("bandpass", freqmin=_freqmin, freqmax=_freqmax)
 
         this_st = st_filt if do_filt else st_raw
 
