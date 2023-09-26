@@ -21,9 +21,10 @@ def simple_max(x):
 
 def first_peak_max(x, *args, **kwargs):
     from scipy.signal import find_peaks
-    _kwargs = {**kwargs, "height":.4}
+    _kwargs = {**kwargs, "height":.25}
     peaks_i, _ = find_peaks(x, *args, **_kwargs)
-    return x[peaks_i[0]]
+    out = x[peaks_i[0]] if len(peaks_i) > 0 else x.max()
+    return out
 
 def get_max_method(max_method="simple"):
     if max_method == "simple":
@@ -325,7 +326,7 @@ class Section:
             ttimes.append(arrival.time)
         self.ttimes = np.r_[ttimes]
     
-    def get_max_t_diff(self, max_method_type="first_peak"):
+    def get_max_t_diff(self, max_method_type="simple"):
         peak_times = []
         st = self.streams_pre
         for u, (code, ttime) in enumerate(zip(self.names, self.ttimes)):
@@ -336,8 +337,8 @@ class Section:
             tr.filter("bandpass", freqmin=self.freqmin, 
                                   freqmax=self.freqmax)
             reftime = tr.stats.starttime + ttime
-            trimmed = tr.trim(reftime - self.post_cut_t, 
-                              reftime + self.post_cut_t, 
+            trimmed = tr.trim(reftime - self.win_minus, 
+                              reftime + self.win_plus, 
                               **self.trim_args)
             max_method = get_max_method(max_method_type)
             trim_data = trimmed.data
@@ -345,19 +346,32 @@ class Section:
             trim_data_max = max_method(trim_data)
             trim_time = trimmed.times()
             time_max = trim_time[trim_data == trim_data_max]
-            peak_times += [time_max[0] - self.post_cut_t]
+            peak_times += [time_max[0] - self.win_minus]
         self.peak_times = np.r_[peak_times]
     
     def clear_phase_arrival(self):
         self.ttimes = []
         self.peak_times = []
     
-    def collect_aligned(self, phase="SS", model="prem"):
+    def collect_aligned(self, phase="SS", model="prem", 
+                        alignment="max", max_method="simple", 
+                        custom_peak_times=None):
         self.get_stations_in_range()
         self.chosen_phase = phase
         phase_list = [phase]
         self.get_arrival_times(phase_list, model)
-        self.get_max_t_diff()
+        # TO DO refactor this please
+        if alignment == "max":
+            self.get_max_t_diff(max_method)
+        elif alignment == "arrival":
+            self.peak_times = np.zeros(self.distances.shape)
+        elif alignment == "custom":
+            if isinstance(custom_peak_times, (np.ndarray, tuple, list)):
+                self.peak_times = custom_peak_times
+            else:
+                raise ValueError("'custom_peak_times' should be an iterable")
+            
+            
         
         st = obspy.Stream()
         streams_pre = self.streams_pre
@@ -405,14 +419,22 @@ class Section:
         
         return time - self.pre_cut_t, data_norm, data, channel
      
-    def plot_data(self, time, data, close_all=True,
-                  args={"cmap":"bone_r", "vmin":-0.25, "vmax":0.25}):
+    def plot_data(self, time, data, close_all=True, method="mesh",
+                  kwargs={"cmap":"bone_r", "vmin":-0.25, "vmax":0.25}):
         if close_all:
             plt.close("all")
             
         plt.figure()
-        plt.pcolormesh(time, self.distances, data, **args)
-        plt.colorbar(extend="both", label="Normalized Amplitude [a.u.]")
+        if method == "mesh":
+            plt.pcolormesh(time, self.distances, data, rasterized=True, 
+                           **kwargs)
+            plt.colorbar(extend="both", label="Normalized Amplitude [a.u.]")
+        elif method == "wiggle":
+            avg = (self.distances.min() + self.distances.max()) / 2
+            plt.plot(time, data.T + self.distances, "k")
+            for d, dd in  zip(self.distances, data):
+                where = d + dd > d
+                plt.fill_between(time, d, d + dd, where=where, color="k")
         xlab = "Time - %s theoretical arrival time [s]"
         plt.xlabel(xlab %  self.chosen_phase)
         plt.ylabel("Offset [deg]")
